@@ -16,7 +16,7 @@
       traceLength: 3,
       traceSpeed: 10,
       flickering: 50,
-      intensity: 30,
+      intensity: 0,
       explosion: 5,
       opacity: 0.5,
       acceleration: 1.05,

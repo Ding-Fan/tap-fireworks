@@ -73,7 +73,7 @@
   $effect(() => {
     const fw = new Fireworks(container, {
       autoresize: true,
-      mouse: { click: true, move: false, max: 5 },
+      mouse: { click: false, move: false, max: 1 },
       hue: { min: 0, max: 360 },
       particles: 50,
       gravity: 1.5,
@@ -98,6 +98,29 @@
     fw.start()
     fireworks = fw
 
+    // Custom spread handler: launch rockets to slightly offset positions
+    // so multiple fireworks from one tap look distinct instead of overlapping.
+    // Accesses (fw as any).mouse because the mouse property is private in
+    // fireworks-js types but accessible at runtime — needed to direct rockets.
+    const handlePointerDown = (e: PointerEvent) => {
+      e.preventDefault()
+      const rect = container.getBoundingClientRect()
+      const tapX = e.clientX - rect.left
+      const tapY = e.clientY - rect.top
+      const count = 3 + Math.floor(Math.random() * 3) // 3-5 rockets
+      const mouse = (fw as any).mouse
+
+      for (let i = 0; i < count; i++) {
+        mouse.x = tapX + (Math.random() - 0.5) * 120 // ±60px spread
+        mouse.y = tapY + (Math.random() - 0.5) * 120
+        mouse.active = true
+        fw.launch(1)
+      }
+      mouse.active = false
+    }
+
+    container.addEventListener('pointerdown', handlePointerDown)
+
     const interval = setInterval(() => {
       fw.updateOptions({
         explosion: 3 + Math.random() * 10,
@@ -109,6 +132,7 @@
     }, 400)
     
     return () => {
+      container.removeEventListener('pointerdown', handlePointerDown)
       clearInterval(interval)
       fw.stop(true)
     }

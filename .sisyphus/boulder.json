@@ -1,10 +1,8 @@
 {
-  "active_plan": "/home/ding/Code/Github/tap-fireworks/.sisyphus/plans/volume-tooltip.md",
-  "started_at": "2026-03-02T13:59:30.000Z",
+  "active_plan": "/home/ding/Code/Github/tap-fireworks/.sisyphus/plans/auto-fire-firework.md",
+  "started_at": "2026-03-02T18:24:58.000Z",
   "session_ids": [
-    "ses_35164547dffeSDmqg0WRnUHD2K"
+    "ses_3504daef9ffeeJ8PCJtlua590o"
   ],
-  "plan_name": "volume-tooltip",
-  "status": "completed",
-  "completed_at": "2026-03-02T15:08:00.000Z"
+  "plan_name": "auto-fire-firework"
 }

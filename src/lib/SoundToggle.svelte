@@ -6,14 +6,24 @@
     showTip?: boolean
   }>()
 
-  let isOpen = $state(false)
-  let container: HTMLDivElement
-
   let showTooltip = $state(false)
   let tipStarted = false
+  let isDragging = $state(false)
+  let lastNonZeroVolume = $state(volume > 0 ? volume : 60)
+  let edgeState = $state<'none' | 'min' | 'max'>('none')
+
+  let iconLevel = $derived(
+    volume === 0 ? 'mute' : volume <= 33 ? 'low' : volume <= 66 ? 'medium' : 'high'
+  )
 
   $effect(() => {
-    if (!showTip || volume !== 0 || isOpen) {
+    if (volume > 0) {
+      lastNonZeroVolume = volume
+    }
+  })
+
+  $effect(() => {
+    if (!showTip || volume !== 0) {
       showTooltip = false
       return
     }
@@ -29,41 +39,78 @@
     return () => window.clearTimeout(timeout)
   })
 
-  // Toggle the popover
-  function toggle(event: MouseEvent) {
-    event.stopPropagation()
-    isOpen = !isOpen
-  }
+  function triggerEdgeHaptic(nextVolume: number) {
+    const nextState = nextVolume === 0 ? 'min' : nextVolume === 100 ? 'max' : 'none'
 
-  // Close the popover
-  function close() {
-    isOpen = false
-  }
-
-  // Close when clicking outside
-  $effect(() => {
-    if (!isOpen) return
-
-    function handleClickOutside(event: MouseEvent) {
-      if (container && !container.contains(event.target as Node)) {
-        close()
-      }
+    if (
+      nextState !== edgeState &&
+      nextState !== 'none' &&
+      typeof navigator !== 'undefined' &&
+      'vibrate' in navigator
+    ) {
+      navigator.vibrate(10)
     }
 
-    // Capture phase might be better, but bubble is standard
-    window.addEventListener('click', handleClickOutside)
+    edgeState = nextState
+  }
+
+  function applyVolume(nextVolume: number) {
+    const normalized = Math.max(0, Math.min(100, Math.round(nextVolume)))
+    volume = normalized
+    triggerEdgeHaptic(normalized)
+  }
+
+  function handleVolumeInput(event: Event) {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLInputElement)) return
+
+    applyVolume(target.valueAsNumber)
+  }
+
+  function handleDragStart(event: PointerEvent) {
+    event.stopPropagation()
+    isDragging = true
+  }
+
+  function handleDragEnd(event?: PointerEvent | FocusEvent) {
+    event?.stopPropagation()
+    isDragging = false
+  }
+
+  $effect(() => {
+    if (!isDragging) return
+
+    const stopDrag = () => {
+      isDragging = false
+    }
+
+    window.addEventListener('pointerup', stopDrag)
+    window.addEventListener('pointercancel', stopDrag)
+
     return () => {
-      window.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('pointerup', stopDrag)
+      window.removeEventListener('pointercancel', stopDrag)
     }
   })
 
-  // Prevent slider interaction from closing popover or triggering fireworks
-  function handleSliderClick(event: MouseEvent) {
+  function toggleMute(event: MouseEvent) {
+    event.stopPropagation()
+
+    if (volume === 0) {
+      applyVolume(lastNonZeroVolume > 0 ? lastNonZeroVolume : 60)
+      return
+    }
+
+    lastNonZeroVolume = volume
+    applyVolume(0)
+  }
+
+  function stopPointer(event: PointerEvent) {
     event.stopPropagation()
   }
 </script>
 
-<div class="sound-toggle-container" bind:this={container}>
+<div class="sound-toggle-container">
   {#if showTooltip}
     <div class="volume-tip" aria-hidden="true">
       <div>Turn up volume for sound</div>
@@ -73,42 +120,48 @@
     </div>
   {/if}
 
-  <button
-    type="button"
-    class="toggle-btn"
-    class:active={isOpen}
-    onclick={toggle}
-    aria-label={volume === 0 ? 'Unmute' : 'Mute'}
-    aria-expanded={isOpen}
-    title="Volume"
-  >
-    {#if volume === 0}
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-    {:else if volume < 50}
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-    {:else}
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-    {/if}
-  </button>
-
-  {#if isOpen}
-    <div 
-      class="popover"
-      onclick={handleSliderClick}
-      onkeydown={(e) => e.key === 'Escape' && close()}
-      role="dialog"
-      aria-label="Volume control"
-      tabindex="-1"
-    >
+  <div class="volume-control" class:dragging={isDragging}>
+    <div class="slider-shell">
       <input
         type="range"
         min="0"
         max="100"
-        bind:value={volume}
-        class="vertical-slider"
+        step="1"
+        value={volume}
+        class="fill-slider"
+        style={`--fill: ${volume}%`}
+        oninput={handleVolumeInput}
+        onpointerdown={handleDragStart}
+        onpointerup={handleDragEnd}
+        onpointercancel={handleDragEnd}
+        onblur={handleDragEnd}
+        aria-label="Volume"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={volume}
+        aria-valuetext={`${volume}%`}
       />
     </div>
-  {/if}
+
+    <button
+      type="button"
+      class="mute-btn"
+      onpointerdown={stopPointer}
+      onclick={toggleMute}
+      aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+      title={volume === 0 ? 'Unmute' : 'Mute'}
+    >
+      {#if iconLevel === 'mute'}
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      {:else if iconLevel === 'low'}
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+      {:else if iconLevel === 'medium'}
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M18.54 6.46a8.5 8.5 0 0 1 0 11.07"></path></svg>
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M18.54 6.46a8.5 8.5 0 0 1 0 11.07"></path><path d="M21.4 4.2a12 12 0 0 1 0 15.6"></path></svg>
+      {/if}
+    </button>
+  </div>
 </div>
 
 <style>
@@ -118,120 +171,146 @@
     right: 1rem;
     z-index: 50;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .toggle-btn {
-    background: rgba(20, 20, 20, 0.8);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.7);
-    padding: 0;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
 
-  .toggle-btn:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .toggle-btn:active {
-    transform: scale(0.95);
-  }
-
-  .toggle-btn.active {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-
-  .popover {
-    position: absolute;
-    top: 100%;
-    margin-top: 0.5rem;
-    background: rgba(20, 20, 20, 0.9);
+  .volume-control {
+    width: 34px;
+    height: 148px;
+    padding: 7px 4px 5px;
+    border-radius: 30px;
+    background: rgba(20, 20, 20, 0.84);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 9999px; /* Pill shape */
-    padding: 1rem 0.5rem;
     display: flex;
-    justify-content: center;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-    animation: fade-in 0.2s ease-out;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 14px 20px -10px rgba(0, 0, 0, 0.7);
+    transition:
+      width 0.18s ease,
+      background-color 0.18s ease,
+      box-shadow 0.18s ease,
+      transform 0.18s ease;
   }
 
-  .vertical-slider {
-    writing-mode: vertical-lr; /* IE/Edge */
-    direction: rtl; /* Puts the max value at top */
-    appearance: slider-vertical; /* Standard */
-    width: 8px;
-    height: 120px; /* Tall slider */
-    background: transparent;
-    cursor: pointer;
-    touch-action: none; /* Prevent scroll while sliding */
+  .volume-control.dragging {
+    width: 38px;
+    background: rgba(22, 26, 34, 0.9);
+    box-shadow: 0 18px 28px -12px rgba(0, 0, 0, 0.78);
+    transform: translateY(-1px);
   }
 
-  /* Slider Track */
-  .vertical-slider::-webkit-slider-runnable-track {
+  .slider-shell {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 100px;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .fill-slider {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    appearance: none;
+    -webkit-appearance: none;
     width: 100%;
     height: 100%;
+    display: block;
+    margin: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    clip-path: inset(0 round 20px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background:
+      linear-gradient(
+        to top,
+        rgba(122, 131, 144, 0.62) 0%,
+        rgba(122, 131, 144, 0.62) var(--fill),
+        rgba(255, 255, 255, 0.1) var(--fill),
+        rgba(255, 255, 255, 0.1) 100%
+      );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    touch-action: none;
+    transition: border-color 0.16s ease;
   }
-  
-  /* Slider Thumb */
-  .vertical-slider::-webkit-slider-thumb {
+
+  .volume-control.dragging .fill-slider {
+    border-color: rgba(185, 194, 204, 0.36);
+  }
+
+  .fill-slider:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(180, 188, 198, 0.3);
+  }
+
+  .fill-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border-radius: 20px;
+  }
+
+  .fill-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    height: 20px;
-    width: 20px;
-    border-radius: 50%;
-    background: white;
-    cursor: pointer;
-    margin-top: -6px; /* Adjust for track */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    transform: translateX(-5px); /* Center on vertical track if needed */
+    width: 1px;
+    height: 1px;
+    opacity: 0;
   }
 
-  /* Firefox */
-  .vertical-slider::-moz-range-track {
-    width: 8px;
+  .fill-slider::-moz-range-track {
+    width: 100%;
     height: 100%;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-  }
-
-  .vertical-slider::-moz-range-thumb {
-    height: 20px;
-    width: 20px;
+    background: transparent;
     border: none;
-    border-radius: 50%;
-    background: white;
+    border-radius: 20px;
+  }
+
+  .fill-slider::-moz-range-progress {
+    background: rgba(122, 131, 144, 0.62);
+    border-radius: 20px;
+  }
+
+  .fill-slider::-moz-range-thumb {
+    width: 0;
+    height: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .mute-btn {
+    background: rgba(20, 20, 20, 0.84);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(240, 248, 255, 0.95);
+    border-radius: 999px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition:
+      transform 0.14s ease,
+      background-color 0.16s ease,
+      color 0.16s ease;
   }
 
-  .vertical-slider:focus {
+  .mute-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+  }
+
+  .mute-btn:active {
+    transform: scale(0.94);
+  }
+
+  .mute-btn:focus-visible {
     outline: none;
-  }
-
-  .vertical-slider:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
-  }
-  
-  .vertical-slider:focus::-moz-range-thumb {
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 3px rgba(70, 164, 255, 0.45);
   }
 
   @keyframes fade-in {
@@ -283,8 +362,14 @@
 
   @media (prefers-reduced-motion: reduce) {
     .volume-tip,
-    .popover {
+    .volume-control {
       animation: none;
+    }
+
+    .volume-control,
+    .fill-slider,
+    .mute-btn {
+      transition: none;
     }
   }
 </style>

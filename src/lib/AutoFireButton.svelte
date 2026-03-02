@@ -56,10 +56,10 @@
     aria-label={activeLabel}
     data-testid="autofire-btn"
   >
-    <svg class="ring" viewBox="0 0 64 64" aria-hidden="true">
-      <circle class="ring-bg" cx="32" cy="32" r={radius}></circle>
+    <svg class="progress-ring" viewBox="0 0 64 64" aria-hidden="true">
+      <circle class="progress-ring-bg" cx="32" cy="32" r={radius}></circle>
       <circle
-        class="ring-fill"
+        class="progress-ring-fill"
         cx="32"
         cy="32"
         r={radius}
@@ -88,13 +88,18 @@
     width: 52px;
     height: 52px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: none;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
     background: rgba(20, 20, 20, 0.86);
     backdrop-filter: blur(10px);
     color: #f3f6ff;
     display: grid;
     place-items: center;
     box-shadow: 0 14px 24px -12px rgba(0, 0, 0, 0.75);
+    overflow: hidden;
     touch-action: none;
     user-select: none;
     transition:
@@ -109,8 +114,7 @@
   }
 
   .auto-fire-button.ready {
-    border-color: rgba(247, 205, 122, 0.8);
-    box-shadow: 0 0 0 2px rgba(247, 205, 122, 0.18), 0 16px 26px -10px rgba(0, 0, 0, 0.78);
+    box-shadow: 0 16px 26px -10px rgba(0, 0, 0, 0.78);
   }
 
   .auto-fire-button.active {
@@ -118,11 +122,10 @@
   }
 
   .auto-fire-button.extend-ready {
-    border-color: rgba(255, 193, 109, 0.92);
-    box-shadow: 0 0 0 3px rgba(255, 193, 109, 0.24), 0 16px 30px -10px rgba(0, 0, 0, 0.82);
+    box-shadow: 0 16px 30px -10px rgba(0, 0, 0, 0.82);
   }
 
-  .ring {
+  .progress-ring {
     position: absolute;
     inset: 3px;
     width: calc(100% - 6px);
@@ -130,24 +133,29 @@
     transform: rotate(-90deg);
   }
 
-  .ring-bg,
-  .ring-fill {
+  .progress-ring-bg,
+  .progress-ring-fill {
     fill: none;
     stroke-width: 4;
   }
 
-  .ring-bg {
-    stroke: rgba(255, 255, 255, 0.16);
+  .progress-ring-bg {
+    stroke: transparent;
   }
 
-  .ring-fill {
+  .progress-ring-fill {
     stroke: rgba(255, 224, 151, 0.98);
     stroke-linecap: round;
     transition: stroke-dashoffset 0.26s linear;
   }
 
-  .active .ring-fill {
+  .active .progress-ring-fill {
     stroke: rgba(150, 209, 255, 0.96);
+  }
+
+  .auto-fire-button:focus,
+  .auto-fire-button:focus-visible {
+    outline: none !important;
   }
 
   .icon {

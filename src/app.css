@@ -1,3 +1,10 @@
+@import "tailwindcss";
+
+@source "./**/*.{html,js,svelte,ts}";
+@source "../node_modules/flowbite-svelte/**/*.{html,js,svelte,ts}";
+
+@plugin "flowbite/plugin";
+
 html, body {
   margin: 0;
   padding: 0;

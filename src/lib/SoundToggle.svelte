@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Tooltip } from 'flowbite-svelte'
   import { isIPhone } from './is-iphone.ts'
 
   let { volume = $bindable(0), showTip = false } = $props<{
@@ -111,16 +112,20 @@
 </script>
 
 <div class="sound-toggle-container">
-  {#if showTooltip}
-    <div class="volume-tip" aria-hidden="true">
-      <div>Turn up volume for sound</div>
-      {#if isIPhone()}
-        <div class="volume-tip-sub">iPhone: Silent Mode off (turn it back on after)</div>
-      {/if}
-    </div>
-  {/if}
+  <Tooltip
+    triggeredBy="#volume-control-anchor"
+    placement="left"
+    arrow={false}
+    isOpen={showTooltip}
+    class="volume-tip-card"
+  >
+    <div>Turn up volume for sound</div>
+    {#if isIPhone()}
+      <div class="volume-tip-sub">iPhone: Silent Mode off (turn it back on after)</div>
+    {/if}
+  </Tooltip>
 
-  <div class="volume-control" class:dragging={isDragging}>
+  <div id="volume-control-anchor" class="volume-control" class:dragging={isDragging}>
     <div class="slider-shell">
       <input
         type="range"
@@ -313,34 +318,20 @@
     box-shadow: 0 0 0 3px rgba(70, 164, 255, 0.45);
   }
 
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .volume-tip {
-    position: absolute;
-    right: calc(100% + 0.75rem);
-    top: 50%;
-    transform: translateY(-50%);
-    max-width: 220px;
+  :global(.volume-tip-card) {
+    width: min(240px, calc(100vw - 2rem));
+    max-width: min(240px, calc(100vw - 2rem));
+    border-radius: 8px;
     padding: 10px 12px;
-    border-radius: 14px;
     background: rgba(20, 20, 20, 0.9);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.85);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-    pointer-events: none;
     line-height: 1.2;
     font-size: 13px;
-    animation: tip-in 0.2s ease-out;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
   .volume-tip-sub {
@@ -349,19 +340,7 @@
     font-size: 12px;
   }
 
-  @keyframes tip-in {
-    from {
-      opacity: 0;
-      transform: translateY(-50%) translateX(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(-50%) translateX(0);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .volume-tip,
     .volume-control {
       animation: none;
     }
@@ -370,6 +349,12 @@
     .fill-slider,
     .mute-btn {
       transition: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .volume-tip-sub {
+      font-size: 11px;
     }
   }
 </style>

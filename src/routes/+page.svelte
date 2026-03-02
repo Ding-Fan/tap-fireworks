@@ -1,10 +1,22 @@
 <script lang="ts">
   import { Fireworks } from 'fireworks-js'
   import SoundToggle from '$lib/SoundToggle.svelte'
+  import AutoFireButton from '$lib/AutoFireButton.svelte'
+  import {
+    createAutoFireState,
+    manualFireTap,
+    tickSecond,
+    activateOrExtendTap
+  } from '$lib/auto-fire/state'
+  import { getCenterAutoFireTarget } from '$lib/auto-fire/target'
   import { browser } from '$app/environment'
 
   let container: HTMLDivElement
   let fireworks: Fireworks | undefined = $state()
+  const initialAutoFireState = createAutoFireState()
+  let autoFireCharge = $state(initialAutoFireState.charge)
+  let autoFireRemainingSeconds = $state(initialAutoFireState.activeRemainingSeconds)
+  let autoFireActive = $derived(autoFireRemainingSeconds > 0)
 
   const soundFiles = [
     '/sounds/explosion0.mp3',
@@ -56,6 +68,82 @@
 
   let showVolumeTip = $derived(volumeLoaded && volume === 0)
 
+  function getAutoFireState() {
+    return {
+      charge: autoFireCharge,
+      activeRemainingSeconds: autoFireRemainingSeconds
+    }
+  }
+
+  function setAutoFireState(nextState: { charge: number; activeRemainingSeconds: number }) {
+    autoFireCharge = nextState.charge
+    autoFireRemainingSeconds = nextState.activeRemainingSeconds
+  }
+
+  function applyManualFireTap() {
+    setAutoFireState(manualFireTap(getAutoFireState()))
+  }
+
+  function applyTickSecond() {
+    setAutoFireState(tickSecond(getAutoFireState()))
+  }
+
+  function applyActivateOrExtendTap() {
+    setAutoFireState(activateOrExtendTap(getAutoFireState()))
+  }
+
+  function getFireworksMouseState(fw: Fireworks): { x: number; y: number; active: boolean } | null {
+    const value = Reflect.get(fw as object, 'mouse')
+    if (typeof value !== 'object' || value === null) return null
+
+    const candidate = value as { x?: unknown; y?: unknown; active?: unknown }
+    if (typeof candidate.x !== 'number') candidate.x = 0
+    if (typeof candidate.y !== 'number') candidate.y = 0
+
+    if (typeof candidate.active !== 'boolean') {
+      candidate.active = false
+    }
+
+    return candidate as { x: number; y: number; active: boolean }
+  }
+
+  function launchCenterAutoFireVolley(fw: Fireworks) {
+    if (!container) return
+    if (autoFireRemainingSeconds <= 0) return
+
+    const count = 1 + Math.floor(Math.random() * 3)
+    const mouse = getFireworksMouseState(fw)
+    if (!mouse) {
+      fw.launch(count)
+      return
+    }
+
+    const rect = container.getBoundingClientRect()
+    const previousMouse = { x: mouse.x, y: mouse.y, active: mouse.active }
+
+    for (let i = 0; i < count; i++) {
+      const point = getCenterAutoFireTarget(rect.width, rect.height, 0)
+      mouse.x = point.x
+      mouse.y = point.y
+      mouse.active = true
+      fw.launch(1)
+    }
+
+    mouse.x = previousMouse.x
+    mouse.y = previousMouse.y
+    mouse.active = previousMouse.active
+  }
+
+  $effect(() => {
+    const interval = window.setInterval(() => {
+      applyTickSecond()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  })
+
   // Update fireworks sound settings
   $effect(() => {
     if (!fireworks) return
@@ -100,17 +188,21 @@
     fw.start()
     fireworks = fw
 
-    // Custom spread handler: launch rockets to slightly offset positions
-    // so multiple fireworks from one tap look distinct instead of overlapping.
-    // Accesses (fw as any).mouse because the mouse property is private in
-    // fireworks-js types but accessible at runtime — needed to direct rockets.
     const handlePointerDown = (e: PointerEvent) => {
       e.preventDefault()
       const rect = container.getBoundingClientRect()
       const tapX = e.clientX - rect.left
       const tapY = e.clientY - rect.top
       const count = 3 + Math.floor(Math.random() * 3) // 3-5 rockets
-      const mouse = (fw as any).mouse
+      const mouse = getFireworksMouseState(fw)
+      applyManualFireTap()
+
+      if (!mouse) {
+        fw.launch(count)
+        return
+      }
+
+      const previousMouse = { x: mouse.x, y: mouse.y, active: mouse.active }
 
       for (let i = 0; i < count; i++) {
         mouse.x = tapX + (Math.random() - 0.5) * 120 // ±60px spread
@@ -118,7 +210,9 @@
         mouse.active = true
         fw.launch(1)
       }
-      mouse.active = false
+      mouse.x = previousMouse.x
+      mouse.y = previousMouse.y
+      mouse.active = previousMouse.active
     }
 
     container.addEventListener('pointerdown', handlePointerDown)
@@ -139,10 +233,46 @@
       fw.stop(true)
     }
   })
+
+  $effect(() => {
+    if (!fireworks || !autoFireActive) return
+
+    const fw = fireworks
+
+    launchCenterAutoFireVolley(fw)
+
+    let timeout: ReturnType<typeof window.setTimeout> | undefined
+    let disposed = false
+
+    const scheduleNext = () => {
+      const delay = 3000 + Math.random() * 2000
+
+      timeout = window.setTimeout(() => {
+        if (disposed || autoFireRemainingSeconds <= 0) return
+        launchCenterAutoFireVolley(fw)
+        scheduleNext()
+      }, delay)
+    }
+
+    scheduleNext()
+
+    return () => {
+      disposed = true
+      if (timeout !== undefined) {
+        window.clearTimeout(timeout)
+      }
+    }
+  })
+
 </script>
 
 <div bind:this={container} class="fireworks-container"></div>
 <SoundToggle bind:volume={volume} showTip={showVolumeTip} />
+<AutoFireButton
+  charge={autoFireCharge}
+  remainingSeconds={autoFireRemainingSeconds}
+  onActivate={applyActivateOrExtendTap}
+/>
 
 <style>
   .fireworks-container {

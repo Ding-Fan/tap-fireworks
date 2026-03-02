@@ -50,9 +50,9 @@ Make multiple rockets from a single tap explode at visually distinct positions b
 - Modified `src/routes/+page.svelte`: custom `pointerdown` handler with spread logic
 
 ### Definition of Done
-- [ ] A single tap launches 3-5 rockets to different positions (not the same pixel)
-- [ ] `pnpm check` passes with 0 errors, 0 warnings
-- [ ] No console errors when tapping
+- [x] A single tap launches 3-5 rockets to different positions (not the same pixel)
+- [x] `pnpm check` passes with 0 errors, 0 warnings
+- [x] No console errors when tapping
 
 ### Must Have
 - Random rocket count per tap (3-5)
@@ -98,7 +98,7 @@ One file, one task. Sequential execution.
 
 ## TODOs
 
-- [ ] 1. Replace built-in click with custom spread handler
+- [x] 1. Replace built-in click with custom spread handler
 
   **What to do**:
 
@@ -268,13 +268,13 @@ pnpm check  # Expected: 0 errors, 0 warnings, 0 hints
 ```
 
 ### Final Checklist
-- [ ] Built-in click handler disabled (`mouse: { click: false }`)
-- [ ] Custom `pointerdown` handler launches 3-5 rockets per tap
-- [ ] Each rocket gets a unique position offset (±60px spread)
-- [ ] `getBoundingClientRect()` used for coordinate calculation
-- [ ] `e.preventDefault()` called in handler
-- [ ] Event listener cleaned up in `$effect` return
-- [ ] `traceSpeed`, `acceleration`, `intensity` NOT modified
-- [ ] Randomizer `setInterval` NOT modified
-- [ ] Sound config NOT modified
-- [ ] `pnpm check` → 0 errors
+- [x] Built-in click handler disabled (`mouse: { click: false }`)
+- [x] Custom `pointerdown` handler launches 3-5 rockets per tap
+- [x] Each rocket gets a unique position offset (±60px spread)
+- [x] `getBoundingClientRect()` used for coordinate calculation
+- [x] `e.preventDefault()` called in handler
+- [x] Event listener cleaned up in `$effect` return
+- [x] `traceSpeed`, `acceleration`, `intensity` NOT modified
+- [x] Randomizer `setInterval` NOT modified
+- [x] Sound config NOT modified
+- [x] `pnpm check` → 0 errors

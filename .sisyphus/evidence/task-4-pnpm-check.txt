@@ -1,0 +1,8 @@
+
+> tap-fireworks@0.0.1 check /home/ding/Code/Github/tap-fireworks
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+Loading svelte-check in workspace: /home/ding/Code/Github/tap-fireworks
+Getting Svelte diagnostics...
+
+svelte-check found 0 errors and 0 warnings

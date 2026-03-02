@@ -1,10 +1,33 @@
 <script lang="ts">
-  let { volume = $bindable(0) } = $props<{
+  import { isIPhone } from './is-iphone.ts'
+
+  let { volume = $bindable(0), showTip = false } = $props<{
     volume?: number
+    showTip?: boolean
   }>()
 
   let isOpen = $state(false)
   let container: HTMLDivElement
+
+  let showTooltip = $state(false)
+  let tipStarted = false
+
+  $effect(() => {
+    if (!showTip || volume !== 0 || isOpen) {
+      showTooltip = false
+      return
+    }
+
+    if (tipStarted) return
+    tipStarted = true
+
+    showTooltip = true
+    const timeout = window.setTimeout(() => {
+      showTooltip = false
+    }, 5000)
+
+    return () => window.clearTimeout(timeout)
+  })
 
   // Toggle the popover
   function toggle(event: MouseEvent) {
@@ -41,6 +64,15 @@
 </script>
 
 <div class="sound-toggle-container" bind:this={container}>
+  {#if showTooltip}
+    <div class="volume-tip" aria-hidden="true">
+      <div>Turn up volume for sound</div>
+      {#if isIPhone()}
+        <div class="volume-tip-sub">iPhone: Silent Mode off (turn it back on after)</div>
+      {/if}
+    </div>
+  {/if}
+
   <button
     type="button"
     class="toggle-btn"
@@ -210,6 +242,49 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  .volume-tip {
+    position: absolute;
+    right: calc(100% + 0.75rem);
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 220px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(20, 20, 20, 0.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    line-height: 1.2;
+    font-size: 13px;
+    animation: tip-in 0.2s ease-out;
+  }
+
+  .volume-tip-sub {
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+  }
+
+  @keyframes tip-in {
+    from {
+      opacity: 0;
+      transform: translateY(-50%) translateX(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .volume-tip,
+    .popover {
+      animation: none;
     }
   }
 </style>

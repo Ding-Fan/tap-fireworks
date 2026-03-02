@@ -14,45 +14,47 @@
 
   // Initialize from localStorage safely
   let volume = $state(0)
-  let initialized = false
+  let volumeLoaded = $state(false)
 
   $effect(() => {
-    if (!initialized) {
-      const stored = localStorage.getItem('fireworks-volume')
-      if (stored) {
-        const parsed = parseInt(stored, 10)
-        if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-          volume = parsed
-        }
-      } else {
-        // Migrate from legacy key if it exists
-        const legacy = localStorage.getItem('fireworks-sound')
-        if (legacy) {
-          if (legacy === 'mute') {
-            volume = 0
-          } else if (legacy === 'subtle') {
-            volume = 30
-          } else if (legacy === 'medium') {
-            volume = 60
-          } else {
-            const parsed = parseInt(legacy, 10)
-            if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-              volume = parsed
-            }
-          }
-          localStorage.removeItem('fireworks-sound')
-        }
+    if (!browser || volumeLoaded) return
+
+    const stored = localStorage.getItem('fireworks-volume')
+    if (stored) {
+      const parsed = parseInt(stored, 10)
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+        volume = parsed
       }
-      initialized = true
+    } else {
+      // Migrate from legacy key if it exists
+      const legacy = localStorage.getItem('fireworks-sound')
+      if (legacy) {
+        if (legacy === 'mute') {
+          volume = 0
+        } else if (legacy === 'subtle') {
+          volume = 30
+        } else if (legacy === 'medium') {
+          volume = 60
+        } else {
+          const parsed = parseInt(legacy, 10)
+          if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+            volume = parsed
+          }
+        }
+        localStorage.removeItem('fireworks-sound')
+      }
     }
+
+    volumeLoaded = true
   })
 
   // Persist to localStorage
   $effect(() => {
-    if (initialized && browser) {
-      localStorage.setItem('fireworks-volume', volume.toString())
-    }
+    if (!browser || !volumeLoaded) return
+    localStorage.setItem('fireworks-volume', volume.toString())
   })
+
+  let showVolumeTip = $derived(volumeLoaded && volume === 0)
 
   // Update fireworks sound settings
   $effect(() => {
@@ -140,7 +142,7 @@
 </script>
 
 <div bind:this={container} class="fireworks-container"></div>
-<SoundToggle bind:volume={volume} />
+<SoundToggle bind:volume={volume} showTip={showVolumeTip} />
 
 <style>
   .fireworks-container {

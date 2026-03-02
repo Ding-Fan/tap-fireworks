@@ -85,8 +85,8 @@
 
   .auto-fire-button {
     position: relative;
-    width: 72px;
-    height: 72px;
+    width: 52px;
+    height: 52px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.18);
     background: rgba(20, 20, 20, 0.86);
@@ -124,9 +124,9 @@
 
   .ring {
     position: absolute;
-    inset: 8px;
-    width: calc(100% - 16px);
-    height: calc(100% - 16px);
+    inset: 3px;
+    width: calc(100% - 6px);
+    height: calc(100% - 6px);
     transform: rotate(-90deg);
   }
 
@@ -154,7 +154,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     font-weight: 700;
     letter-spacing: 0.01em;
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
